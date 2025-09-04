@@ -20,7 +20,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.gridshot_camera"
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName

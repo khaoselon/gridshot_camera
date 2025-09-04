@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
-import 'package:gallery_saver/gallery_saver.dart';
+import 'package:gal/gal.dart';
 import 'package:gridshot_camera/models/grid_style.dart';
 import 'package:gridshot_camera/models/shooting_mode.dart';
 import 'package:gridshot_camera/models/app_settings.dart';
@@ -201,7 +201,7 @@ class ImageComposerService {
 
     // ギャラリーに保存（ユーザーが確認できるように）
     try {
-      await GallerySaver.saveImage(filePath);
+      await Gal.putImage(filePath);
       debugPrint('ギャラリーへの保存完了');
     } catch (e) {
       debugPrint('ギャラリー保存エラー（続行）: $e');

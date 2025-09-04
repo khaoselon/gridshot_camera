@@ -1,0 +1,50 @@
+name: gridshot_camera
+description: "A new Flutter project."
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.0-196.1.beta
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  camera: ^0.11.0+2
+  image: ^4.2.0
+  path_provider: ^2.1.4
+  path: ^1.9.0
+  permission_handler: ^11.3.1
+  google_mobile_ads: ^5.1.0
+  shared_preferences: ^2.3.2
+  gallery_saver: ^2.3.2
+  share_plus: ^7.2.2
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
+  app_tracking_transparency: ^2.0.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  generate: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+
+  fonts:
+    - family: NotoSansJP
+      fonts:
+        - asset: assets/fonts/NotoSansJP-Regular.ttf
+        - asset: assets/fonts/NotoSansJP-Bold.ttf
+          weight: 700
+
+dependency_overrides:
+  gallery_saver:
+    path: third_party/gallery_saver

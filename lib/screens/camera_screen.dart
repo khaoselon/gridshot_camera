@@ -380,7 +380,7 @@ class _CameraScreenState extends State<CameraScreen>
 
     return Stack(
       children: [
-        // カメラプレビュー
+        // カメラプレビュー（修正版）
         _buildCameraPreview(),
 
         // フラッシュオーバーレイ
@@ -397,7 +397,7 @@ class _CameraScreenState extends State<CameraScreen>
           },
         ),
 
-        // グリッドオーバーレイ
+        // グリッドオーバーレイ（修正版）
         _buildGridOverlay(),
 
         // UI コントロール
@@ -451,6 +451,7 @@ class _CameraScreenState extends State<CameraScreen>
     );
   }
 
+  // 修正されたカメラプレビュー
   Widget _buildCameraPreview() {
     if (!_cameraService.isInitialized || _cameraService.controller == null) {
       return Container(color: Colors.black);
@@ -464,37 +465,60 @@ class _CameraScreenState extends State<CameraScreen>
           _onZoomChanged(zoom);
         }
       },
-      child: ClipRect(
-        child: OverflowBox(
-          alignment: Alignment.center,
-          child: FittedBox(
-            fit: BoxFit.fitWidth,
-            child: SizedBox(
-              width: MediaQuery.of(context).size.width,
-              height:
-                  MediaQuery.of(context).size.width /
-                  _cameraService.controller!.value.aspectRatio,
-              child: CameraPreview(_cameraService.controller!),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final controller = _cameraService.controller!;
+          final screenSize = Size(constraints.maxWidth, constraints.maxHeight);
+
+          // カメラのアスペクト比を取得
+          final cameraAspectRatio = controller.value.aspectRatio;
+
+          // 画面のアスペクト比を計算
+          final screenAspectRatio = screenSize.width / screenSize.height;
+
+          double scaleX, scaleY;
+          if (cameraAspectRatio > screenAspectRatio) {
+            // カメラの方が横長の場合、高さに合わせる
+            scaleY = screenSize.height;
+            scaleX = screenSize.height * cameraAspectRatio;
+          } else {
+            // カメラの方が縦長の場合、幅に合わせる
+            scaleX = screenSize.width;
+            scaleY = screenSize.width / cameraAspectRatio;
+          }
+
+          return Center(
+            child: ClipRect(
+              child: Container(
+                width: scaleX,
+                height: scaleY,
+                child: CameraPreview(controller),
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 
+  // 修正されたグリッドオーバーレイ
   Widget _buildGridOverlay() {
     final settings = SettingsService.instance.currentSettings;
 
     return Positioned.fill(
-      child: GridOverlay(
-        gridStyle: widget.gridStyle,
-        size: MediaQuery.of(context).size,
-        currentIndex: _session.currentIndex,
-        borderColor: settings.showGridBorder
-            ? settings.borderColor
-            : Colors.transparent,
-        borderWidth: settings.showGridBorder ? settings.borderWidth : 0,
-        showCellNumbers: true,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return GridOverlay(
+            gridStyle: widget.gridStyle,
+            size: Size(constraints.maxWidth, constraints.maxHeight),
+            currentIndex: _session.currentIndex,
+            borderColor: settings.showGridBorder
+                ? settings.borderColor
+                : Colors.transparent,
+            borderWidth: settings.showGridBorder ? settings.borderWidth : 0,
+            showCellNumbers: true,
+          );
+        },
       ),
     );
   }
@@ -531,9 +555,9 @@ class _CameraScreenState extends State<CameraScreen>
 
           const Spacer(),
 
-          // 撮影情報
+          // 撮影情報（修正版）
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.black.withValues(alpha: 0.7),
               borderRadius: BorderRadius.circular(20),
@@ -544,27 +568,39 @@ class _CameraScreenState extends State<CameraScreen>
                   l10n.currentPosition(_session.currentPosition.displayString),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 12,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 // プログレスバー
                 AnimatedBuilder(
                   animation: _progressAnimation,
                   builder: (context, child) {
-                    return SizedBox(
-                      width: 100,
+                    return Container(
+                      width: 120,
                       height: 4,
-                      child: LinearProgressIndicator(
-                        value: _progressAnimation.value,
-                        backgroundColor: Colors.white.withValues(alpha: 0.3),
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          Colors.blue,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(2),
+                        color: Colors.white.withValues(alpha: 0.3),
+                      ),
+                      child: FractionallySizedBox(
+                        alignment: Alignment.centerLeft,
+                        widthFactor: _progressAnimation.value,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(2),
+                            color: Colors.blue,
+                          ),
                         ),
                       ),
                     );
                   },
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${_session.completedCount}/${_session.gridStyle.totalCells}',
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
             ),

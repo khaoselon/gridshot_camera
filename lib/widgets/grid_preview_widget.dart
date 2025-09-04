@@ -87,79 +87,113 @@ class _GridPreviewWidgetState extends State<GridPreviewWidget>
       decoration: BoxDecoration(
         border: Border.all(color: theme.dividerColor, width: 1),
         borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: theme.shadowColor.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: GridView.builder(
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: widget.gridStyle.columns,
-          childAspectRatio: 1.0,
-          crossAxisSpacing: borderWidth,
-          mainAxisSpacing: borderWidth,
-        ),
-        itemCount: widget.gridStyle.totalCells,
-        itemBuilder: (context, index) {
-          final isHighlighted = widget.highlightIndex == index;
-          final position = widget.gridStyle.getPosition(index);
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: GridView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: widget.gridStyle.columns,
+            childAspectRatio: 1.0,
+            crossAxisSpacing: borderWidth,
+            mainAxisSpacing: borderWidth,
+          ),
+          itemCount: widget.gridStyle.totalCells,
+          itemBuilder: (context, index) {
+            final isHighlighted = widget.highlightIndex == index;
+            final position = widget.gridStyle.getPosition(index);
 
-          Widget cell = Container(
-            decoration: BoxDecoration(
-              color: isHighlighted
-                  ? theme.primaryColor.withOpacity(0.3)
-                  : theme.cardColor,
-              border: borderWidth > 0
-                  ? Border.all(color: borderColor, width: borderWidth)
-                  : null,
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    _getCellIcon(index),
-                    size: widget.size / (widget.gridStyle.totalCells + 2),
-                    color: isHighlighted
-                        ? theme.primaryColor
-                        : theme.iconTheme.color?.withOpacity(0.6),
-                  ),
-                  if (widget.size > 80) // サイズが十分大きい場合のみ表示
-                    Text(
-                      position.displayString,
-                      style: TextStyle(
-                        fontSize: widget.size / 15,
-                        fontWeight: FontWeight.bold,
-                        color: isHighlighted
-                            ? theme.primaryColor
-                            : theme.textTheme.bodySmall?.color,
-                      ),
-                    ),
-                ],
+            Widget cell = Container(
+              decoration: BoxDecoration(
+                color: isHighlighted
+                    ? theme.primaryColor.withOpacity(0.3)
+                    : theme.cardColor,
+                border: borderWidth > 0
+                    ? Border.all(color: borderColor, width: borderWidth)
+                    : null,
+                borderRadius: BorderRadius.circular(2),
               ),
-            ),
-          );
-
-          // ハイライト表示がある場合はアニメーション付きにする
-          if (isHighlighted) {
-            cell = AnimatedBuilder(
-              animation: _pulseAnimation,
-              builder: (context, child) {
-                return Transform.scale(
-                  scale: _pulseAnimation.value,
-                  child: child,
-                );
-              },
-              child: cell,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _getCellIcon(index),
+                      size: _getIconSize(),
+                      color: isHighlighted
+                          ? theme.primaryColor
+                          : theme.iconTheme.color?.withOpacity(0.6),
+                    ),
+                    if (widget.size > 80) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        position.displayString,
+                        style: TextStyle(
+                          fontSize: _getTextSize(),
+                          fontWeight: FontWeight.bold,
+                          color: isHighlighted
+                              ? theme.primaryColor
+                              : theme.textTheme.bodySmall?.color,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             );
-          }
 
-          return cell;
-        },
+            // ハイライト表示がある場合はアニメーション付きにする
+            if (isHighlighted) {
+              cell = AnimatedBuilder(
+                animation: _pulseAnimation,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: _pulseAnimation.value,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(4),
+                        boxShadow: [
+                          BoxShadow(
+                            color: theme.primaryColor.withOpacity(0.3),
+                            blurRadius: 8 * _pulseAnimation.value,
+                            spreadRadius: 2 * _pulseAnimation.value,
+                          ),
+                        ],
+                      ),
+                      child: child,
+                    ),
+                  );
+                },
+                child: cell,
+              );
+            }
+
+            return cell;
+          },
+        ),
       ),
     );
   }
 
+  double _getIconSize() {
+    final baseSize = widget.size / (widget.gridStyle.totalCells + 2);
+    return baseSize.clamp(12.0, 24.0);
+  }
+
+  double _getTextSize() {
+    return (widget.size / 15).clamp(8.0, 12.0);
+  }
+
   IconData _getCellIcon(int index) {
     // セルの位置に基づいてアイコンを決定
-    switch (index % 4) {
+    switch (index % 6) {
       case 0:
         return Icons.photo_camera;
       case 1:
@@ -168,13 +202,17 @@ class _GridPreviewWidgetState extends State<GridPreviewWidget>
         return Icons.crop_square;
       case 3:
         return Icons.grid_view;
+      case 4:
+        return Icons.photo;
+      case 5:
+        return Icons.camera_alt;
       default:
         return Icons.crop_square;
     }
   }
 }
 
-// グリッドオーバーレイ（カメラ画面で使用）
+// グリッドオーバーレイ（カメラ画面で使用）- 改善版
 class GridOverlay extends StatelessWidget {
   final GridStyle gridStyle;
   final Size size;
@@ -195,8 +233,6 @@ class GridOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Container(
       width: size.width,
       height: size.height,
@@ -233,13 +269,15 @@ class GridPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (borderWidth <= 0) return;
+
     final paint = Paint()
       ..color = borderColor
       ..strokeWidth = borderWidth
       ..style = PaintingStyle.stroke;
 
     final highlightPaint = Paint()
-      ..color = borderColor.withOpacity(0.3)
+      ..color = borderColor.withOpacity(0.2)
       ..style = PaintingStyle.fill;
 
     final cellWidth = size.width / gridStyle.columns;
@@ -257,7 +295,8 @@ class GridPainter extends CustomPainter {
     }
 
     // 外枠を描画
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
+    final outerRect = Rect.fromLTWH(0, 0, size.width, size.height);
+    canvas.drawRect(outerRect, paint);
 
     // 現在のセルをハイライト
     if (currentIndex != null) {
@@ -269,34 +308,65 @@ class GridPainter extends CustomPainter {
         cellHeight,
       );
       canvas.drawRect(rect, highlightPaint);
+
+      // 現在のセルの境界線を太くする
+      final thickPaint = Paint()
+        ..color = borderColor
+        ..strokeWidth = borderWidth * 2
+        ..style = PaintingStyle.stroke;
+      canvas.drawRect(rect, thickPaint);
     }
 
     // セル番号を描画
     if (showCellNumbers) {
       final textPainter = TextPainter(textDirection: TextDirection.ltr);
+      final fontSize = (cellWidth + cellHeight) / 10;
 
       for (int i = 0; i < gridStyle.totalCells; i++) {
         final position = gridStyle.getPosition(i);
         final centerX = (position.col + 0.5) * cellWidth;
         final centerY = (position.row + 0.5) * cellHeight;
+        final isCurrentCell = currentIndex == i;
 
         textPainter.text = TextSpan(
           text: position.displayString,
           style: TextStyle(
             color: textColor,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+            fontSize: fontSize.clamp(14.0, 24.0),
+            fontWeight: isCurrentCell ? FontWeight.bold : FontWeight.w600,
             shadows: [
               Shadow(
                 offset: const Offset(1, 1),
-                blurRadius: 2,
-                color: Colors.black.withOpacity(0.7),
+                blurRadius: 3,
+                color: Colors.black.withOpacity(0.8),
+              ),
+              Shadow(
+                offset: const Offset(-1, -1),
+                blurRadius: 3,
+                color: Colors.black.withOpacity(0.8),
               ),
             ],
           ),
         );
 
         textPainter.layout();
+
+        // 現在のセルの場合は背景を追加
+        if (isCurrentCell) {
+          final textRect = Rect.fromCenter(
+            center: Offset(centerX, centerY),
+            width: textPainter.width + 8,
+            height: textPainter.height + 4,
+          );
+          final bgPaint = Paint()
+            ..color = borderColor.withOpacity(0.3)
+            ..style = PaintingStyle.fill;
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(textRect, const Radius.circular(4)),
+            bgPaint,
+          );
+        }
+
         textPainter.paint(
           canvas,
           Offset(

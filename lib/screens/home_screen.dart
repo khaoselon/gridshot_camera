@@ -207,37 +207,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             GridPreviewWidget(
                               gridStyle: _selectedGridStyle,
                               size: 120,
+                              highlightIndex: 0, // 最初のセルをハイライト
                             ),
                             const SizedBox(height: 16),
 
-                            // グリッドスタイル選択ボタン
-                            Wrap(
-                              spacing: 8.0,
-                              runSpacing: 8.0,
-                              children: GridStyle.values.map((style) {
-                                final isSelected = _selectedGridStyle == style;
-                                return ChoiceChip(
-                                  label: Text(_getGridStyleLabel(l10n, style)),
-                                  selected: isSelected,
-                                  onSelected: (selected) {
-                                    if (selected) {
-                                      _onGridStyleChanged(style);
-                                    }
-                                  },
-                                  selectedColor: theme.primaryColor.withOpacity(
-                                    0.2,
-                                  ),
-                                  labelStyle: TextStyle(
-                                    color: isSelected
-                                        ? theme.primaryColor
-                                        : null,
-                                    fontWeight: isSelected
-                                        ? FontWeight.bold
-                                        : null,
-                                  ),
-                                );
-                              }).toList(),
-                            ),
+                            // グリッドスタイル選択ボタン（改善版）
+                            _buildGridStyleSelector(l10n, theme),
                           ],
                         ),
                       ),
@@ -286,6 +261,87 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ],
         ),
       ),
+    );
+  }
+
+  // 改善されたグリッドスタイルセレクター
+  Widget _buildGridStyleSelector(AppLocalizations l10n, ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '選択中: ${_getGridStyleLabel(l10n, _selectedGridStyle)}',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.primaryColor,
+          ),
+        ),
+        const SizedBox(height: 12),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 3,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+          ),
+          itemCount: GridStyle.values.length,
+          itemBuilder: (context, index) {
+            final style = GridStyle.values[index];
+            final isSelected = _selectedGridStyle == style;
+
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _onGridStyleChanged(style),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: isSelected
+                          ? theme.primaryColor
+                          : theme.dividerColor,
+                      width: isSelected ? 2 : 1,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    color: isSelected
+                        ? theme.primaryColor.withOpacity(0.1)
+                        : null,
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.grid_view,
+                          color: isSelected
+                              ? theme.primaryColor
+                              : theme.iconTheme.color?.withOpacity(0.7),
+                          size: 20,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _getGridStyleLabel(l10n, style),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: isSelected
+                                ? theme.primaryColor
+                                : theme.textTheme.bodyMedium?.color,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 

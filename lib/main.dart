@@ -145,64 +145,217 @@ class _GridShotCameraAppState extends State<GridShotCameraApp>
       ],
       locale: Locale(_currentSettings.languageCode),
 
-      // テーマ設定
+      // 明るいテーマ設定
       theme: ThemeData(
-        primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-        fontFamily: 'NotoSansJP',
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.black87,
+        useMaterial3: true,
+        brightness: Brightness.light,
+
+        // メインカラー設定（明るい紫系）
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF7C4DFF), // 明るい紫
+          brightness: Brightness.light,
+          primary: const Color(0xFF7C4DFF),
+          secondary: const Color(0xFF9C88FF),
+          surface: Colors.grey[50]!,
+          background: const Color(0xFFFAF9FF), // 非常に薄い紫がかった白
+          onPrimary: Colors.white,
+          onSecondary: Colors.white,
+          onSurface: Colors.grey[800]!,
+          onBackground: Colors.grey[900]!,
+        ),
+
+        // AppBarテーマ
+        appBarTheme: AppBarTheme(
+          backgroundColor: const Color(0xFF7C4DFF),
           foregroundColor: Colors.white,
           elevation: 0,
           centerTitle: true,
+          titleTextStyle: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
+          iconTheme: const IconThemeData(color: Colors.white),
         ),
+
+        // ボタンテーマ
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue,
+            backgroundColor: const Color(0xFF7C4DFF),
             foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+            elevation: 4,
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
             ),
           ),
         ),
-        cardTheme: CardThemeData(
-          elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+
+        // アウトラインボタンテーマ
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF7C4DFF),
+            side: const BorderSide(color: Color(0xFF7C4DFF), width: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
           ),
+        ),
+
+        // カードテーマ
+        cardTheme: CardThemeData(
+          elevation: 6,
+          shadowColor: const Color(0xFF7C4DFF).withOpacity(0.2),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          color: Colors.white,
+        ),
+
+        // フォントファミリー
+        fontFamily: 'NotoSansJP',
+
+        // テキストテーマ
+        textTheme: TextTheme(
+          displayLarge: TextStyle(
+            color: Colors.grey[900],
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+          headlineLarge: TextStyle(
+            color: Colors.grey[900],
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
+          headlineMedium: TextStyle(
+            color: Colors.grey[900],
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
+          titleLarge: TextStyle(
+            color: Colors.grey[900],
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
+          titleMedium: TextStyle(
+            color: Colors.grey[800],
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.3,
+          ),
+          bodyLarge: TextStyle(color: Colors.grey[800], letterSpacing: 0.3),
+          bodyMedium: TextStyle(color: Colors.grey[700], letterSpacing: 0.3),
+        ),
+
+        // その他のコンポーネントテーマ
+        scaffoldBackgroundColor: const Color(0xFFFAF9FF),
+
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          backgroundColor: Color(0xFF7C4DFF),
+          foregroundColor: Colors.white,
+          elevation: 8,
+        ),
+
+        switchTheme: SwitchThemeData(
+          thumbColor: MaterialStateProperty.resolveWith((states) {
+            if (states.contains(MaterialState.selected)) {
+              return const Color(0xFF7C4DFF);
+            }
+            return Colors.grey[400];
+          }),
+          trackColor: MaterialStateProperty.resolveWith((states) {
+            if (states.contains(MaterialState.selected)) {
+              return const Color(0xFF7C4DFF).withOpacity(0.3);
+            }
+            return Colors.grey[300];
+          }),
+        ),
+
+        sliderTheme: SliderThemeData(
+          activeTrackColor: const Color(0xFF7C4DFF),
+          inactiveTrackColor: const Color(0xFF7C4DFF).withOpacity(0.3),
+          thumbColor: const Color(0xFF7C4DFF),
+          overlayColor: const Color(0xFF7C4DFF).withOpacity(0.2),
+        ),
+
+        progressIndicatorTheme: const ProgressIndicatorThemeData(
+          color: Color(0xFF7C4DFF),
+          linearTrackColor: Color(0xFFE1BEE7),
+          circularTrackColor: Color(0xFFE1BEE7),
+        ),
+
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.grey[50],
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFF7C4DFF)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey[300]!),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFF7C4DFF), width: 2),
+          ),
+          labelStyle: TextStyle(color: Colors.grey[700]),
         ),
       ),
 
-      // ダークテーマ設定
+      // ダークテーマ設定（明るめに調整）
       darkTheme: ThemeData(
+        useMaterial3: true,
         brightness: Brightness.dark,
-        primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-        fontFamily: 'NotoSansJP',
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.black,
+
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF9C88FF),
+          brightness: Brightness.dark,
+          primary: const Color(0xFF9C88FF),
+          secondary: const Color(0xFFBBAAFF),
+          surface: Colors.grey[850]!,
+          background: const Color(0xFF121212),
+          onPrimary: Colors.black,
+          onSecondary: Colors.black,
+          onSurface: Colors.white,
+          onBackground: Colors.white,
+        ),
+
+        appBarTheme: AppBarTheme(
+          backgroundColor: const Color(0xFF1F1F1F),
           foregroundColor: Colors.white,
           elevation: 0,
           centerTitle: true,
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+          titleTextStyle: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
           ),
         ),
+
         cardTheme: CardThemeData(
-          elevation: 4,
+          elevation: 8,
+          shadowColor: const Color(0xFF9C88FF).withOpacity(0.3),
           color: Colors.grey[850],
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
+
+        fontFamily: 'NotoSansJP',
+        scaffoldBackgroundColor: const Color(0xFF121212),
       ),
 
       // システムのテーマに従う

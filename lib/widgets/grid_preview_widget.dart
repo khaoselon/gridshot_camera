@@ -81,9 +81,17 @@ class _GridPreviewWidgetState extends State<GridPreviewWidget>
     final borderWidth =
         widget.borderWidth ?? (widget.showBorders ? settings.borderWidth : 0.0);
 
+    // グリッドの縦横比を計算（正方形に近づける）
+    final cellAspectRatio = widget.gridStyle.columns / widget.gridStyle.rows;
+    final containerHeight = widget.size / cellAspectRatio;
+
     return Container(
       width: widget.size,
-      height: widget.size,
+      height: containerHeight,
+      constraints: BoxConstraints(
+        maxHeight: widget.size * 1.5, // 最大高さを制限
+        minHeight: widget.size * 0.5, // 最小高さを設定
+      ),
       decoration: BoxDecoration(
         border: Border.all(color: theme.dividerColor, width: 1),
         borderRadius: BorderRadius.circular(8),
@@ -99,9 +107,10 @@ class _GridPreviewWidgetState extends State<GridPreviewWidget>
         borderRadius: BorderRadius.circular(8),
         child: GridView.builder(
           physics: const NeverScrollableScrollPhysics(),
+          shrinkWrap: true, // 重要: 内容に合わせてサイズを調整
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: widget.gridStyle.columns,
-            childAspectRatio: 1.0,
+            crossAxisCount: widget.gridStyle.columns, // 列数
+            childAspectRatio: 1.0, // セルを正方形に
             crossAxisSpacing: borderWidth,
             mainAxisSpacing: borderWidth,
           ),
@@ -183,12 +192,24 @@ class _GridPreviewWidgetState extends State<GridPreviewWidget>
   }
 
   double _getIconSize() {
-    final baseSize = widget.size / (widget.gridStyle.totalCells + 2);
+    // グリッドサイズに応じてアイコンサイズを調整
+    final cellSize =
+        widget.size /
+        (widget.gridStyle.columns > widget.gridStyle.rows
+            ? widget.gridStyle.columns
+            : widget.gridStyle.rows);
+    final baseSize = cellSize / 3;
     return baseSize.clamp(12.0, 24.0);
   }
 
   double _getTextSize() {
-    return (widget.size / 15).clamp(8.0, 12.0);
+    // グリッドサイズに応じてテキストサイズを調整
+    final cellSize =
+        widget.size /
+        (widget.gridStyle.columns > widget.gridStyle.rows
+            ? widget.gridStyle.columns
+            : widget.gridStyle.rows);
+    return (cellSize / 8).clamp(8.0, 12.0);
   }
 
   IconData _getCellIcon(int index) {
@@ -385,5 +406,77 @@ class GridPainter extends CustomPainter {
         oldDelegate.gridStyle != gridStyle ||
         oldDelegate.borderColor != borderColor ||
         oldDelegate.borderWidth != borderWidth;
+  }
+}
+
+// グリッドスタイル表示用のコンパクトウィジェット
+class GridStyleIndicator extends StatelessWidget {
+  final GridStyle gridStyle;
+  final double size;
+  final Color? color;
+  final bool isSelected;
+
+  const GridStyleIndicator({
+    super.key,
+    required this.gridStyle,
+    this.size = 32,
+    this.color,
+    this.isSelected = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final indicatorColor =
+        color ??
+        (isSelected ? theme.colorScheme.primary : theme.iconTheme.color);
+
+    return Container(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: GridStylePainter(
+          gridStyle: gridStyle,
+          color: indicatorColor ?? Colors.grey,
+        ),
+      ),
+    );
+  }
+}
+
+class GridStylePainter extends CustomPainter {
+  final GridStyle gridStyle;
+  final Color color;
+
+  GridStylePainter({required this.gridStyle, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    final cellWidth = size.width / gridStyle.columns;
+    final cellHeight = size.height / gridStyle.rows;
+
+    // 垂直線を描画
+    for (int i = 0; i <= gridStyle.columns; i++) {
+      final x = i * cellWidth;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+
+    // 水平線を描画
+    for (int i = 0; i <= gridStyle.rows; i++) {
+      final y = i * cellHeight;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return oldDelegate is! GridStylePainter ||
+        oldDelegate.gridStyle != gridStyle ||
+        oldDelegate.color != color;
   }
 }

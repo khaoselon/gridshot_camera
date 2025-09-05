@@ -32,7 +32,7 @@ class ImageComposerService {
         throw Exception('撮影が完了していない画像があります');
       }
 
-      debugPrint('画像合成を開始: ${images.length}枚の画像');
+      debugPrint('画像合成を開始: ${images.length}枚の画像 (${session.mode.name}モード)');
 
       // 各画像を読み込み
       List<img.Image> loadedImages = [];
@@ -50,28 +50,18 @@ class ImageComposerService {
         loadedImages.add(image);
       }
 
-      // 画像サイズを統一（最小サイズに合わせる）
-      final targetSize = _calculateTargetSize(loadedImages);
-      debugPrint('目標画像サイズ: ${targetSize.width}x${targetSize.height}');
-
-      // 各画像をリサイズ
-      List<img.Image> resizedImages = [];
-      for (final image in loadedImages) {
-        final resized = img.copyResize(
-          image,
-          width: targetSize.width,
-          height: targetSize.height,
-          interpolation: img.Interpolation.linear,
-        );
-        resizedImages.add(resized);
-      }
-
-      // グリッド画像を合成
-      final compositeImage = _createGridComposite(
-        images: resizedImages,
-        gridStyle: session.gridStyle,
-        settings: appSettings,
-      );
+      // モードに応じて異なる合成処理を実行
+      final compositeImage = session.mode.isCatalogMode
+          ? _createCatalogComposite(
+              images: loadedImages,
+              gridStyle: session.gridStyle,
+              settings: appSettings,
+            )
+          : _createImpossibleComposite(
+              images: loadedImages,
+              gridStyle: session.gridStyle,
+              settings: appSettings,
+            );
 
       // 合成画像を保存
       final savedPath = await _saveCompositeImage(
@@ -93,29 +83,8 @@ class ImageComposerService {
     }
   }
 
-  /// 目標画像サイズを計算
-  ImageSize _calculateTargetSize(List<img.Image> images) {
-    if (images.isEmpty) {
-      return const ImageSize(width: 1080, height: 1080);
-    }
-
-    // 最小の幅と高さを取得
-    int minWidth = images.first.width;
-    int minHeight = images.first.height;
-
-    for (final image in images) {
-      minWidth = minWidth < image.width ? minWidth : image.width;
-      minHeight = minHeight < image.height ? minHeight : image.height;
-    }
-
-    // アスペクト比を1:1に調整
-    final targetSize = minWidth < minHeight ? minWidth : minHeight;
-
-    return ImageSize(width: targetSize, height: targetSize);
-  }
-
-  /// グリッド合成画像を作成
-  img.Image _createGridComposite({
+  /// カタログモード用の合成処理
+  img.Image _createCatalogComposite({
     required List<img.Image> images,
     required GridStyle gridStyle,
     required AppSettings settings,
@@ -124,8 +93,105 @@ class ImageComposerService {
       throw Exception('合成する画像がありません');
     }
 
-    final cellWidth = images.first.width;
-    final cellHeight = images.first.height;
+    // 最適なセルサイズを計算（各画像の最大サイズを基準）
+    int maxWidth = 0;
+    int maxHeight = 0;
+    for (final image in images) {
+      if (image.width > maxWidth) maxWidth = image.width;
+      if (image.height > maxHeight) maxHeight = image.height;
+    }
+
+    // セルサイズを決定（正方形にする）
+    final cellSize = maxWidth > maxHeight ? maxWidth : maxHeight;
+    final borderWidth = settings.showGridBorder
+        ? settings.borderWidth.toInt()
+        : 0;
+
+    // 合成画像のサイズを計算
+    final compositeWidth =
+        (cellSize * gridStyle.columns) +
+        (borderWidth * (gridStyle.columns - 1));
+    final compositeHeight =
+        (cellSize * gridStyle.rows) + (borderWidth * (gridStyle.rows - 1));
+
+    debugPrint(
+      'カタログ合成: セルサイズ=${cellSize}x${cellSize}, 合成サイズ=${compositeWidth}x${compositeHeight}',
+    );
+
+    // 合成画像を作成
+    final composite = img.Image(
+      width: compositeWidth,
+      height: compositeHeight,
+      format: img.Format.uint8,
+      numChannels: 3,
+    );
+
+    // 背景色（境界線の色）で埋める
+    if (settings.showGridBorder && borderWidth > 0) {
+      final borderColor = _convertFlutterColorToImageColor(
+        settings.borderColor,
+      );
+      img.fill(composite, color: borderColor);
+    } else {
+      img.fill(composite, color: img.ColorRgb8(255, 255, 255)); // 白背景
+    }
+
+    // 各画像を適切な位置に配置（アスペクト比を保持）
+    for (int i = 0; i < images.length && i < gridStyle.totalCells; i++) {
+      final position = gridStyle.getPosition(i);
+      final cellX = (position.col * cellSize) + (position.col * borderWidth);
+      final cellY = (position.row * cellSize) + (position.row * borderWidth);
+
+      // 画像をセルサイズに収まるようにリサイズ（アスペクト比保持）
+      final processedImage = _fitImageToCell(images[i], cellSize);
+
+      // セルの中央に配置
+      final offsetX = cellX + ((cellSize - processedImage.width) ~/ 2);
+      final offsetY = cellY + ((cellSize - processedImage.height) ~/ 2);
+
+      img.compositeImage(
+        composite,
+        processedImage,
+        dstX: offsetX,
+        dstY: offsetY,
+      );
+    }
+
+    return composite;
+  }
+
+  /// 不可能合成モード用の合成処理
+  img.Image _createImpossibleComposite({
+    required List<img.Image> images,
+    required GridStyle gridStyle,
+    required AppSettings settings,
+  }) {
+    if (images.isEmpty) {
+      throw Exception('合成する画像がありません');
+    }
+
+    // 全画像のサイズを統一（最初の画像を基準）
+    final referenceImage = images.first;
+    final targetWidth = referenceImage.width;
+    final targetHeight = referenceImage.height;
+
+    debugPrint('不可能合成: 基準サイズ=${targetWidth}x${targetHeight}');
+
+    // 各画像を同じサイズにリサイズ
+    List<img.Image> resizedImages = [];
+    for (final image in images) {
+      final resized = img.copyResize(
+        image,
+        width: targetWidth,
+        height: targetHeight,
+        interpolation: img.Interpolation.linear,
+      );
+      resizedImages.add(resized);
+    }
+
+    // グリッドセルのサイズを計算
+    final cellWidth = targetWidth ~/ gridStyle.columns;
+    final cellHeight = targetHeight ~/ gridStyle.rows;
     final borderWidth = settings.showGridBorder
         ? settings.borderWidth.toInt()
         : 0;
@@ -137,7 +203,9 @@ class ImageComposerService {
     final compositeHeight =
         (cellHeight * gridStyle.rows) + (borderWidth * (gridStyle.rows - 1));
 
-    debugPrint('合成画像サイズ: ${compositeWidth}x${compositeHeight}');
+    debugPrint(
+      '不可能合成: セルサイズ=${cellWidth}x${cellHeight}, 合成サイズ=${compositeWidth}x${compositeHeight}',
+    );
 
     // 合成画像を作成
     final composite = img.Image(
@@ -155,16 +223,65 @@ class ImageComposerService {
       img.fill(composite, color: borderColor);
     }
 
-    // 各画像を適切な位置に配置
-    for (int i = 0; i < images.length && i < gridStyle.totalCells; i++) {
+    // 各画像から該当するグリッドセル部分を切り出して配置
+    for (int i = 0; i < resizedImages.length && i < gridStyle.totalCells; i++) {
       final position = gridStyle.getPosition(i);
-      final x = (position.col * cellWidth) + (position.col * borderWidth);
-      final y = (position.row * cellHeight) + (position.row * borderWidth);
 
-      img.compositeImage(composite, images[i], dstX: x, dstY: y);
+      // 元画像での切り出し位置を計算
+      final srcX = position.col * cellWidth;
+      final srcY = position.row * cellHeight;
+
+      // 合成画像での配置位置を計算
+      final dstX = (position.col * cellWidth) + (position.col * borderWidth);
+      final dstY = (position.row * cellHeight) + (position.row * borderWidth);
+
+      // 画像から該当部分を切り出し
+      final croppedImage = img.copyCrop(
+        resizedImages[i],
+        x: srcX,
+        y: srcY,
+        width: cellWidth,
+        height: cellHeight,
+      );
+
+      img.compositeImage(composite, croppedImage, dstX: dstX, dstY: dstY);
     }
 
     return composite;
+  }
+
+  /// 画像をセルサイズに収まるようにリサイズ（アスペクト比保持）
+  img.Image _fitImageToCell(img.Image image, int cellSize) {
+    final imageAspectRatio = image.width / image.height;
+
+    int newWidth, newHeight;
+
+    if (imageAspectRatio > 1.0) {
+      // 横長の画像
+      newWidth = cellSize;
+      newHeight = (cellSize / imageAspectRatio).round();
+    } else {
+      // 縦長または正方形の画像
+      newHeight = cellSize;
+      newWidth = (cellSize * imageAspectRatio).round();
+    }
+
+    // セルサイズを超えないように調整
+    if (newWidth > cellSize) {
+      newWidth = cellSize;
+      newHeight = (cellSize / imageAspectRatio).round();
+    }
+    if (newHeight > cellSize) {
+      newHeight = cellSize;
+      newWidth = (cellSize * imageAspectRatio).round();
+    }
+
+    return img.copyResize(
+      image,
+      width: newWidth,
+      height: newHeight,
+      interpolation: img.Interpolation.linear,
+    );
   }
 
   /// Flutter ColorをImageライブラリのColorに変換

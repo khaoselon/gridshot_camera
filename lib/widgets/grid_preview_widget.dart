@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gridshot_camera/models/grid_style.dart';
+import 'package:gridshot_camera/models/shooting_mode.dart';
 import 'package:gridshot_camera/services/settings_service.dart';
 
 class GridPreviewWidget extends StatefulWidget {
@@ -233,7 +234,7 @@ class _GridPreviewWidgetState extends State<GridPreviewWidget>
   }
 }
 
-// グリッドオーバーレイ（カメラ画面で使用）- 改善版
+// グリッドオーバーレイ（カメラ画面で使用）- モード対応版
 class GridOverlay extends StatelessWidget {
   final GridStyle gridStyle;
   final Size size;
@@ -241,6 +242,7 @@ class GridOverlay extends StatelessWidget {
   final Color borderColor;
   final double borderWidth;
   final bool showCellNumbers;
+  final ShootingMode? shootingMode; // 追加：撮影モード
 
   const GridOverlay({
     super.key,
@@ -250,6 +252,7 @@ class GridOverlay extends StatelessWidget {
     this.borderColor = Colors.white,
     this.borderWidth = 2.0,
     this.showCellNumbers = true,
+    this.shootingMode, // 撮影モード
   });
 
   @override
@@ -265,6 +268,7 @@ class GridOverlay extends StatelessWidget {
           borderWidth: borderWidth,
           showCellNumbers: showCellNumbers,
           textColor: Colors.white,
+          shootingMode: shootingMode,
         ),
       ),
     );
@@ -278,6 +282,7 @@ class GridPainter extends CustomPainter {
   final double borderWidth;
   final bool showCellNumbers;
   final Color textColor;
+  final ShootingMode? shootingMode;
 
   GridPainter({
     required this.gridStyle,
@@ -286,6 +291,7 @@ class GridPainter extends CustomPainter {
     required this.borderWidth,
     required this.showCellNumbers,
     required this.textColor,
+    this.shootingMode,
   });
 
   @override
@@ -303,6 +309,38 @@ class GridPainter extends CustomPainter {
 
     final cellWidth = size.width / gridStyle.columns;
     final cellHeight = size.height / gridStyle.rows;
+
+    // モードに応じた描画処理
+    if (shootingMode == ShootingMode.impossible) {
+      _drawImpossibleModeGrid(
+        canvas,
+        size,
+        paint,
+        highlightPaint,
+        cellWidth,
+        cellHeight,
+      );
+    } else {
+      _drawCatalogModeGrid(
+        canvas,
+        size,
+        paint,
+        highlightPaint,
+        cellWidth,
+        cellHeight,
+      );
+    }
+  }
+
+  void _drawCatalogModeGrid(
+    Canvas canvas,
+    Size size,
+    Paint paint,
+    Paint highlightPaint,
+    double cellWidth,
+    double cellHeight,
+  ) {
+    // カタログモード：通常のグリッド表示
 
     // グリッド線を描画
     for (int i = 1; i < gridStyle.columns; i++) {
@@ -340,62 +378,178 @@ class GridPainter extends CustomPainter {
 
     // セル番号を描画
     if (showCellNumbers) {
-      final textPainter = TextPainter(textDirection: TextDirection.ltr);
-      final fontSize = (cellWidth + cellHeight) / 10;
+      _drawCellNumbers(canvas, cellWidth, cellHeight, 'カタログ');
+    }
+  }
 
-      for (int i = 0; i < gridStyle.totalCells; i++) {
-        final position = gridStyle.getPosition(i);
-        final centerX = (position.col + 0.5) * cellWidth;
-        final centerY = (position.row + 0.5) * cellHeight;
-        final isCurrentCell = currentIndex == i;
+  void _drawImpossibleModeGrid(
+    Canvas canvas,
+    Size size,
+    Paint paint,
+    Paint highlightPaint,
+    double cellWidth,
+    double cellHeight,
+  ) {
+    // 不可能合成モード：現在撮影中のセルのみを強調表示
 
-        textPainter.text = TextSpan(
-          text: position.displayString,
-          style: TextStyle(
-            color: textColor,
-            fontSize: fontSize.clamp(14.0, 24.0),
-            fontWeight: isCurrentCell ? FontWeight.bold : FontWeight.w600,
-            shadows: [
-              Shadow(
-                offset: const Offset(1, 1),
-                blurRadius: 3,
-                color: Colors.black.withOpacity(0.8),
-              ),
-              Shadow(
-                offset: const Offset(-1, -1),
-                blurRadius: 3,
-                color: Colors.black.withOpacity(0.8),
-              ),
-            ],
+    // 全体のグリッド線を薄く描画
+    final dimPaint = Paint()
+      ..color = borderColor.withOpacity(0.3)
+      ..strokeWidth = borderWidth * 0.5
+      ..style = PaintingStyle.stroke;
+
+    // グリッド線を描画（薄く）
+    for (int i = 1; i < gridStyle.columns; i++) {
+      final x = i * cellWidth;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), dimPaint);
+    }
+
+    for (int i = 1; i < gridStyle.rows; i++) {
+      final y = i * cellHeight;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), dimPaint);
+    }
+
+    // 外枠を描画（薄く）
+    final outerRect = Rect.fromLTWH(0, 0, size.width, size.height);
+    canvas.drawRect(outerRect, dimPaint);
+
+    // 現在のセルのみを強調表示
+    if (currentIndex != null) {
+      final position = gridStyle.getPosition(currentIndex!);
+      final rect = Rect.fromLTWH(
+        position.col * cellWidth,
+        position.row * cellHeight,
+        cellWidth,
+        cellHeight,
+      );
+
+      // ハイライト背景
+      canvas.drawRect(rect, highlightPaint);
+
+      // 現在のセルの境界線を太く明るく描画
+      final currentCellPaint = Paint()
+        ..color = borderColor
+        ..strokeWidth = borderWidth * 3
+        ..style = PaintingStyle.stroke;
+      canvas.drawRect(rect, currentCellPaint);
+
+      // 撮影エリアの説明テキスト
+      _drawShootingInstructions(canvas, rect, position);
+    }
+
+    // 完了したセルを薄く表示
+    _drawCompletedCells(canvas, cellWidth, cellHeight);
+
+    // セル番号を描画（現在のセルのみ強調）
+    if (showCellNumbers) {
+      _drawCellNumbers(canvas, cellWidth, cellHeight, '不可能合成');
+    }
+  }
+
+  void _drawShootingInstructions(
+    Canvas canvas,
+    Rect rect,
+    GridPosition position,
+  ) {
+    // 撮影中のセルに指示テキストを表示
+    final textPainter = TextPainter(textDirection: TextDirection.ltr);
+
+    textPainter.text = TextSpan(
+      text: '${position.displayString}エリア\nを撮影',
+      style: TextStyle(
+        color: textColor,
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        shadows: [
+          Shadow(
+            offset: const Offset(1, 1),
+            blurRadius: 4,
+            color: Colors.black.withOpacity(0.8),
           ),
+        ],
+      ),
+    );
+
+    textPainter.layout();
+
+    final centerX = rect.center.dx;
+    final centerY = rect.center.dy;
+
+    textPainter.paint(
+      canvas,
+      Offset(centerX - textPainter.width / 2, centerY - textPainter.height / 2),
+    );
+  }
+
+  void _drawCompletedCells(Canvas canvas, double cellWidth, double cellHeight) {
+    // 完了したセルを薄く表示（実装簡略化）
+    // 実際のプロダクションでは、ShootingSessionの状態を受け取って描画
+  }
+
+  void _drawCellNumbers(
+    Canvas canvas,
+    double cellWidth,
+    double cellHeight,
+    String mode,
+  ) {
+    final textPainter = TextPainter(textDirection: TextDirection.ltr);
+    final fontSize = (cellWidth + cellHeight) / 12;
+
+    for (int i = 0; i < gridStyle.totalCells; i++) {
+      final position = gridStyle.getPosition(i);
+      final centerX = (position.col + 0.5) * cellWidth;
+      final centerY = (position.row + 0.5) * cellHeight;
+      final isCurrentCell = currentIndex == i;
+
+      // 不可能合成モードでは現在のセル以外は薄く表示
+      final opacity = (mode == '不可能合成' && !isCurrentCell) ? 0.4 : 1.0;
+
+      textPainter.text = TextSpan(
+        text: position.displayString,
+        style: TextStyle(
+          color: textColor.withOpacity(opacity),
+          fontSize: fontSize.clamp(12.0, 20.0),
+          fontWeight: isCurrentCell ? FontWeight.bold : FontWeight.w600,
+          shadows: [
+            Shadow(
+              offset: const Offset(1, 1),
+              blurRadius: 3,
+              color: Colors.black.withOpacity(0.8),
+            ),
+            Shadow(
+              offset: const Offset(-1, -1),
+              blurRadius: 3,
+              color: Colors.black.withOpacity(0.8),
+            ),
+          ],
+        ),
+      );
+
+      textPainter.layout();
+
+      // 現在のセルの場合は背景を追加
+      if (isCurrentCell) {
+        final textRect = Rect.fromCenter(
+          center: Offset(centerX, centerY),
+          width: textPainter.width + 12,
+          height: textPainter.height + 8,
         );
-
-        textPainter.layout();
-
-        // 現在のセルの場合は背景を追加
-        if (isCurrentCell) {
-          final textRect = Rect.fromCenter(
-            center: Offset(centerX, centerY),
-            width: textPainter.width + 8,
-            height: textPainter.height + 4,
-          );
-          final bgPaint = Paint()
-            ..color = borderColor.withOpacity(0.3)
-            ..style = PaintingStyle.fill;
-          canvas.drawRRect(
-            RRect.fromRectAndRadius(textRect, const Radius.circular(4)),
-            bgPaint,
-          );
-        }
-
-        textPainter.paint(
-          canvas,
-          Offset(
-            centerX - textPainter.width / 2,
-            centerY - textPainter.height / 2,
-          ),
+        final bgPaint = Paint()
+          ..color = borderColor.withOpacity(0.4)
+          ..style = PaintingStyle.fill;
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(textRect, const Radius.circular(6)),
+          bgPaint,
         );
       }
+
+      textPainter.paint(
+        canvas,
+        Offset(
+          centerX - textPainter.width / 2,
+          centerY - textPainter.height / 2,
+        ),
+      );
     }
   }
 
@@ -405,7 +559,8 @@ class GridPainter extends CustomPainter {
         oldDelegate.currentIndex != currentIndex ||
         oldDelegate.gridStyle != gridStyle ||
         oldDelegate.borderColor != borderColor ||
-        oldDelegate.borderWidth != borderWidth;
+        oldDelegate.borderWidth != borderWidth ||
+        oldDelegate.shootingMode != shootingMode;
   }
 }
 

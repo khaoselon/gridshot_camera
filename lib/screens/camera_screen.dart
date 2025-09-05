@@ -517,6 +517,7 @@ class _CameraScreenState extends State<CameraScreen>
                 : Colors.transparent,
             borderWidth: settings.showGridBorder ? settings.borderWidth : 0,
             showCellNumbers: true,
+            shootingMode: widget.mode, // 撮影モードを渡す
           );
         },
       ),
